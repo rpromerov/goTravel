@@ -1,3 +1,3 @@
-module cliente
+module main
 
 go 1.20
