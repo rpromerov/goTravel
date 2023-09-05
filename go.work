@@ -3,7 +3,7 @@ go 1.20
 use (
 	./cliente
 	./server
-	./server/model
+	./model
 	./server/amadeus
 
 )

@@ -45,6 +45,25 @@ func main() {
 		}
 		return c.Send(json)
 	})
+	app.Post("/api/pricing", func(c *fiber.Ctx) error {
+		// body as FlightOffersPricing
+		var flightOfferPricing model.FlightData
+		err := c.BodyParser(&flightOfferPricing)
+		if err != nil {
+			println("Error parsing body " + err.Error())
+			panic(err)
+		}
+		// call amadeus
+		pricing_response := amadeus.Flight_pricing(flightOfferPricing)
+		// marshall response to json
+		json, err := json.Marshal(pricing_response)
+		if err != nil {
+			println("Error marshalling json " + err.Error())
+			panic(err)
+		}
+		return c.Send(json)
+
+	})
 
 	log.Fatal(app.Listen(":5001"))
 }

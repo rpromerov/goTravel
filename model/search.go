@@ -1,19 +1,24 @@
 package model
 
 type Search_Params struct {
-	OriginLocationCode      string
-	DestinationLocationCode string
-	DepartureDate           string
-	Adults                  string
-	NonStop                 string
-	CurrencyCode            string
-	TravelClass             string
+	OriginLocationCode      string `json:"originLocationCode"`
+	DestinationLocationCode string `json:"destinationLocationCode"`
+	DepartureDate           string `json:"departureDate"`
+	Adults                  string `json:"adults"`
+	NonStop                 string `json:"nonStop"`
+	CurrencyCode            string `json:"currencyCode"`
+	TravelClass             string `json:"travelClass"`
 }
-type FlightOfferPrice struct {
-	Data []FlightOffer `json:"data"`
+type FlightData struct {
+	Data Data `json:"data"`
 }
 
-type FlightOfferResponse struct {
+type Data struct {
+	Type         string        `json:"type"`
+	FlightOffers []FlightOffer `json:"flightOffers"`
+}
+
+type FlightSearchResponse struct {
 	Meta struct {
 		Count int `json:"count"`
 		Links struct {
@@ -21,6 +26,10 @@ type FlightOfferResponse struct {
 		} `json:"links"`
 	} `json:"meta"`
 	Data []FlightOffer `json:"data"`
+}
+
+type FlightOfferResponse struct {
+	Data Data `json:"data"`
 }
 
 type FlightOffer struct {
@@ -34,8 +43,8 @@ type FlightOffer struct {
 	LastTicketingDateTime    string            `json:"lastTicketingDateTime"`
 	NumberOfBookableSeats    int               `json:"numberOfBookableSeats"`
 	Itineraries              []Itinerary       `json:"itineraries"`
-	Price                    PriceDetails      `json:"price"`
-	PricingOptions           PricingOptions    `json:"pricingOptions"`
+	Price                    Price             `json:"price"`
+	PricingOptions           Pricing           `json:"pricingOptions"`
 	ValidatingAirlineCodes   []string          `json:"validatingAirlineCodes"`
 	TravelerPricings         []TravelerPricing `json:"travelerPricings"`
 }
@@ -104,12 +113,6 @@ type FlightOffersPricing struct {
 	Dictionaries Dictionaries `json:"dictionaries"`
 }
 
-type Data struct {
-	Type                string              `json:"type"`
-	FlightOffers        []FlightOffer       `json:"flightOffers"`
-	BookingRequirements BookingRequirements `json:"bookingRequirements"`
-}
-
 type Location struct {
 	IATACode string `json:"iataCode"`
 	At       string `json:"at"`
@@ -163,4 +166,8 @@ type Dictionaries struct {
 type LocationDetail struct {
 	CityCode    string `json:"cityCode"`
 	CountryCode string `json:"countryCode"`
+}
+type Pricing struct {
+	FareType                []string `json:"fareType"`
+	IncludedCheckedBagsOnly bool     `json:"includedCheckedBagsOnly"`
 }
