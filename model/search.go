@@ -171,3 +171,54 @@ type Pricing struct {
 	FareType                []string `json:"fareType"`
 	IncludedCheckedBagsOnly bool     `json:"includedCheckedBagsOnly"`
 }
+
+type FlightOrder struct {
+	Type         string         `json:"type"`
+	FlightOffers []FlightOffer  `json:"flightOffers"` // Assume FlightOffer structure has already been defined
+	Travelers    []TravelerInfo `json:"travelers"`
+}
+
+type TravelerInfo struct {
+	ID          string  `json:"id"`
+	DateOfBirth string  `json:"dateOfBirth"`
+	Name        Name    `json:"name"`
+	Gender      string  `json:"gender"`
+	Contact     Contact `json:"contact"` // You may need to define Document struct based on actual structure in JSON
+}
+
+type Name struct {
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
+type Contact struct {
+	EmailAddress string  `json:"emailAddress"`
+	Phones       []Phone `json:"phones"`
+}
+
+type Phone struct {
+	DeviceType         string `json:"deviceType"`
+	CountryCallingCode string `json:"countryCallingCode"`
+	Number             string `json:"number"`
+}
+
+type FlightOrderResponse struct {
+	Data FlightOrderData `json:"data"`
+}
+
+type FlightOrderData struct {
+	Type              string             `json:"type"`
+	ID                string             `json:"id"`
+	QueuingOfficeId   string             `json:"queuingOfficeId"`
+	AssociatedRecords []AssociatedRecord `json:"associatedRecords"`
+	FlightOffers      []FlightOffer      `json:"flightOffers"` // Assumes FlightOffer is previously defined
+	Travelers         []TravelerInfo     `json:"travelers"`    // Assumes TravelerInfo is previously defined
+	// ... represents other fields you might have omitted for brevity
+}
+
+type AssociatedRecord struct {
+	Reference        string `json:"reference"`
+	CreationDate     string `json:"creationDate"`
+	OriginSystemCode string `json:"originSystemCode"`
+	FlightOfferId    string `json:"flightOfferId"`
+}
