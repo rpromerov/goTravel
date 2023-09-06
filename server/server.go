@@ -4,6 +4,7 @@ package main
 import (
 	"amadeus"
 	"db_connector"
+	"os"
 	"time"
 
 	"encoding/json"
@@ -144,5 +145,5 @@ func main() {
 
 		return c.Send(json)
 	})
-	log.Fatal(app.Listen(":5001"))
+	log.Fatal(app.Listen(os.Getenv("SERVER") + ":" + os.Getenv("PORT")))
 }

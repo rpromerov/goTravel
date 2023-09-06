@@ -3,6 +3,7 @@ package db_connector
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -14,7 +15,7 @@ func Close(client mongo.Client, ctx context.Context, cancel context.CancelFunc) 
 	defer client.Disconnect(ctx)
 }
 func Connect() (mongo.Client, context.Context, context.CancelFunc, error) {
-	uri := "mongodb://server:password123@localhost:27017/gotravel"
+	uri := os.Getenv("CONNECTION_STRING")
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	return *client, ctx, cancel, err
