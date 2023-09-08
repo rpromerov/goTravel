@@ -13,6 +13,7 @@ import (
 	"model"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -45,6 +46,7 @@ func main() {
 
 	fmt.Println("goTravel server starting...")
 	app := fiber.New()
+	app.Use(recover.New())
 	app.Get("/api/search", func(c *fiber.Ctx) error {
 		//get params from request
 		originLocationCode := c.Query("originLocationCode")
@@ -71,7 +73,7 @@ func main() {
 		json, err := json.Marshal(search_response)
 		if err != nil {
 			println("Error marshalling json " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al realizar la búsqueda”}")
 		}
 		return c.Send(json)
 	})
@@ -81,7 +83,7 @@ func main() {
 		err := c.BodyParser(&flightOfferPricing)
 		if err != nil {
 			println("Error parsing body " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al retornar los precios”}")
 		}
 		// call amadeus
 		pricing_response := amadeus.Flight_pricing(flightOfferPricing)
@@ -89,7 +91,7 @@ func main() {
 		json, err := json.Marshal(pricing_response)
 		if err != nil {
 			println("Error marshalling json " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al retornar los precios”}")
 		}
 		return c.Send(json)
 
@@ -100,19 +102,19 @@ func main() {
 		err := c.BodyParser(&flightOrder)
 		if err != nil {
 			println("Error parsing body " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al crear la reserva”}")
 		}
 		response := amadeus.Book_flight(flightOrder)
 		order_json, err := json.Marshal(response)
 		if err != nil {
 			println("Error marshalling json " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al crear la reserva”}")
 		}
 		//store in mongodb
 		_, err = db_connector.InsertOne(client, ctx, "reservations", response.Data)
 		if err != nil {
 			println("Error inserting reservation " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al crear la reserva”}")
 		}
 		return c.Send(order_json)
 	})
@@ -124,14 +126,14 @@ func main() {
 		result, err := db_connector.GetOne(client, ctx, "reservations", filter)
 		if err != nil {
 			println("Error getting reservation " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al recuperar la reserva”}")
 		}
 		//mongo result as FlightOrderData
 		var response model.FlightOrderData
 		err = result.Decode(&response)
 		if err != nil {
 			println("Error decoding reservation " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al recuperar la reserva”}")
 		}
 		//wrap in FlightOrderResponse
 		var response2 model.FlightOrderResponse
@@ -140,7 +142,7 @@ func main() {
 		json, err := json.Marshal(response2)
 		if err != nil {
 			println("Error marshalling json " + err.Error())
-			panic(err)
+			return fiber.NewError(500, "{“message”: “Hubo un error al recuperar la reserva”}")
 		}
 
 		return c.Send(json)
