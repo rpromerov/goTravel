@@ -1,166 +1,181 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
-
-	//"github.com/gin-gonic/gin"
-	"io/ioutil"
-	"net/url"
-	"strings"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
+
+	"model"
 )
 
-type AccessTokenResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
-}
-
-type RespuestaJSON struct {
-	Data []Flight `json:"data"`
-}
-
-// Estructura para representar la oferta de vuelo
-type Flight struct {
-	ID          string `json:"id"`
-	CarrierCode string `json:"carrierCode"`
-	Number      string `json:"number"`
-	Departure   string `json:"departure"`
-	Arrival     string `json:"arrival"`
-	Code        string `json:"code"`
-	Total       string `json:"total"`
-}
-
-func obtenerNuevoToken() (string, error) {
-	clientID := "rVLNX6dP527lBIpfBEyWGpKt92xhxjlz"
-	clientSecret := "vOlBYNKISDUGamcp"
-
-	if clientID == "" || clientSecret == "" {
-		return "", fmt.Errorf("No se han configurado las credenciales de Amadeus.")
-	}
-
-	authURL := "https://test.api.amadeus.com/v1/security/oauth2/token"
-
-	// Parámetros del formulario
-	form := url.Values{}
-	form.Add("grant_type", "client_credentials")
-	form.Add("client_id", clientID)
-	form.Add("client_secret", clientSecret)
-
-	resp, err := http.Post(authURL, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Error al obtener el token. Código de estado: %d", resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var tokenResponse AccessTokenResponse
-	if err := json.Unmarshal(body, &tokenResponse); err != nil {
-		return "", err
-	}
-
-	return tokenResponse.AccessToken, nil
-}
-
 func main() {
-	// Si opción es 1
-	var origen, destino, fechaSalida, adultos string
+	var input string
+	fmt.Println("Bienvenido a goTravel!")
+	for {
+		fmt.Println("1. Realizar búsqueda.")
+		fmt.Println("2. Obtener reserva.")
+		fmt.Println("3. Salir.")
 
-	// Usuario ingresa datos
-	fmt.Print("Aeropuerto de origen: ")
-	fmt.Scan(&origen)
+		print("Ingrese una opción: ")
+		fmt.Scanln(&input)
+		switch input {
+		case "1":
+			{
+				// Ingresar variables
+				var originLocationCode, destinationLocationCode, departureDate, adults string
 
-	fmt.Print("Aeropuerto de destino: ")
-	fmt.Scan(&destino)
+				// Usuario ingresa datos
+				fmt.Print("Aeropuerto de origen: ")
+				fmt.Scan(&originLocationCode)
 
-	fmt.Print("Fecha de salida (YYYY-MM-DD): ")
-	fmt.Scan(&fechaSalida)
+				fmt.Print("Aeropuerto de destino: ")
+				fmt.Scan(&destinationLocationCode)
 
-	fmt.Print("Cantidad de adultos: ")
-	fmt.Scan(&adultos)
+				fmt.Print("Fecha de salida (YYYY-MM-DD): ")
+				fmt.Scan(&departureDate)
 
-	// URL del endpoint de ofertas de vuelos
-	url := "https://test.api.amadeus.com/v2/shopping/flight-offers"
+				fmt.Print("Cantidad de adultos: ")
+				fmt.Scan(&adults)
 
-	// Crear una solicitud HTTP GET con los parámetros
-	req, err := http.NewRequest("GET", url, nil)
+				// Buscar vuelos
+				url := "http://localhost:5000/api/search?" + "originLocationCode=" + originLocationCode + "&destinationLocationCode=" + destinationLocationCode + "&departureDate=" + departureDate + "&adults=" + adults + "&nonStop=true&currencyCode=CLP&travelClass=ECONOMY"
 
-	// Agregar variables a la URL
-	q := req.URL.Query()
-	q.Add("originLocationCode", "ARI")
-	q.Add("destinationLocationCode", "SCL")
-	q.Add("departureDate", "2023-12-02")
-	q.Add("adults", "1")
-	// Agregar constantes
-	q.Add("includedAirlineCodes", "H2,LA,JA")
-	q.Add("nonStop", "true")
-	q.Add("currencyCode", "CLP")
-	q.Add("travelClass", "ECONOMY")
-	req.URL.RawQuery = q.Encode()
+				req, err := http.NewRequest("GET", url, nil)
+				if err != nil {
+					panic(err)
+				}
 
-	// Agregar el encabezado de autorización
-	accessToken, err := obtenerNuevoToken()
-	if err != nil {
-		fmt.Println("Error al obtener el token:", err)
-		return
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					panic(err)
+				}
+				defer resp.Body.Close()
 
-	// Realizar la solicitud HTTP
-	client := &http.Client{}
-	resp2, err := client.Do(req)
-	defer resp2.Body.Close()
+				// Leer y mostrar la respuesta
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					panic(err)
+				}
 
-	// Leer y mostrar la respuesta
-	body2, err := ioutil.ReadAll(resp2.Body)
-	if err != nil {
-		fmt.Println("Error al deserializar JSON:", err)
-		return
-	}
+				print("Se obtuvieron los siguientes resultados:\n")
 
-	respuestaJSON := body2
-	//fmt.Println(string(body2))
+				// Crear una nueva tabla
+				table := tablewriter.NewWriter(os.Stdout)
+				headers := []string{"VUELO", "NÚMERO", "HORA DE SALIDA", "HORA DE LLEGADA", "AVIÓN", "PRECIO TOTAL"}
+				table.SetHeader(headers)
 
-	// Deserializar la respuesta JSON en la estructura RespuestaJSON
-	var respuesta RespuestaJSON
-	Jerr := json.Unmarshal([]byte(respuestaJSON), &respuesta)
-	if Jerr != nil {
-		fmt.Println("Error al deserializar JSON:", err)
-		return
-	}
+				var flightSearchResponse model.FlightSearchResponse
+				err_ := json.Unmarshal(body, &flightSearchResponse)
+				if err_ != nil {
+					panic(err_)
+				}
 
-	// Crear una nueva tabla
-	table := tablewriter.NewWriter(os.Stdout)
-	// Encabezados de la tabla
-	headers := []string{"VUELO", "NÚMERO", "HORA DE SALIDA", "HORA DE LLEGADA", "AVIÓN", "PRECIO TOTAL"}
-	// Setear los encabezados de la tabla
-	table.SetHeader(headers)
+				// Rellenar datos
+				for _, dato := range flightSearchResponse.Data {
+					for _, itinerary := range dato.Itineraries {
+						for _, segment := range itinerary.Segments {
 
-	// Acceder a los datos de las ofertas de vuelos
-	for _, oferta := range respuesta.Data {
-		// Acceder a los itinerarios de la oferta de vuelo
-		row := []string{
-			oferta.ID,
-			oferta.CarrierCode + oferta.Number,
-			oferta.Departure,
-			oferta.Arrival,
-			"A" + oferta.Code,
-			oferta.Total,
+							departure := segment.Departure
+							parsedTime, err := time.Parse("2006-01-02T15:04:05", departure.At)
+							if err != nil {
+								fmt.Println("Error al analizar la hora:", err)
+								return
+							}
+							formattedTime := parsedTime.Format("15:04")
+
+							arrival := segment.Arrival
+							parsedArrival, err := time.Parse("2006-01-02T15:04:05", arrival.At)
+							if err_ != nil {
+								fmt.Println("Error al analizar la hora:", err_)
+								return
+							}
+							formattedTimeA := parsedArrival.Format("15:04")
+
+							row := []string{dato.ID, segment.CarrierCode + " " + segment.Number, formattedTime, formattedTimeA, "A" + segment.Aircraft.Code, dato.Price.Total}
+							table.Append(row)
+						}
+					}
+				}
+
+				table.Render()
+
+				// Seleccionar opción de vuelo u Otra búsqueda
+				var index string
+				print("Seleccione un vuelo (Ingrese 0 para realizar nueva búsqueda): ")
+				fmt.Scanln(&index)
+				if index != "0" {
+
+					
+				}
+			}
+
+		case "2":
+			{
+				var id string
+				println("Ingrese el ID de la reserva: ")
+				fmt.Scanln(&id)
+
+				url := "localhost:5000/api/booking/:id" + id
+
+				req, err := http.NewRequest("GET", url, nil)
+				if err != nil {
+					panic(err)
+				}
+
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					panic(err)
+				}
+				defer resp.Body.Close()
+
+				// Leer y mostrar la respuesta
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					panic(err)
+				}
+				fmt.Println(string(body))
+
+				println("Resultado:")
+
+				// Crear una nueva tabla
+				table := tablewriter.NewWriter(os.Stdout)
+				// Encabezados de la tabla
+				headers := []string{"NÚMERO", "HORA DE SALIDA", "HORA DE LLEGADA", "AVIÓN", "PRECIO TOTAL"}
+				// Setear los encabezados de la tabla
+				table.SetHeader(headers)
+
+				// Rellenar datos
+
+				// Imprimir tabla
+				table.Render()
+
+				println("Pasajeros:")
+
+				// Crear una nueva tabla
+				passenger := tablewriter.NewWriter(os.Stdout)
+				// Encabezados de la tabla
+				headers_p := []string{"NOMBRE", "APELLIDO"}
+				// Setear los encabezados de la tabla
+				passenger.SetHeader(headers_p)
+
+				// Rellenar datos
+
+				// Imprimir tabla
+				passenger.Render()
+			}
+		case "3":
+			{
+				println("Gracias por usar goTravel!")
+				return
+			}
 		}
-		table.Append(row)
 	}
-	// Imprimir la tabla en la salida estándar
-	table.Render()
 }
