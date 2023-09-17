@@ -48,6 +48,7 @@ func main() {
 	app := fiber.New()
 	app.Use(recover.New())
 	app.Get("/api/search", func(c *fiber.Ctx) error {
+		fmt.Println("GET /api/search")
 		//get params from request
 		originLocationCode := c.Query("originLocationCode")
 		destinationLocationCode := c.Query("destinationLocationCode")
@@ -78,12 +79,21 @@ func main() {
 		return c.Send(json)
 	})
 	app.Post("/api/pricing", func(c *fiber.Ctx) error {
+		fmt.Println("POST /api/pricing")
 		// body as FlightOffersPricing
 		var flightOfferPricing model.FlightData
 		err := c.BodyParser(&flightOfferPricing)
 		if err != nil {
 			println("Error parsing body " + err.Error())
 			return fiber.NewError(500, "{“message”: “Hubo un error al retornar los precios”}")
+		}
+		//Fix missing carrierCode in segments
+		for i := 0; i < len(flightOfferPricing.Data.FlightOffers); i++ {
+			for j := 0; j < len(flightOfferPricing.Data.FlightOffers[i].Itineraries); j++ {
+				for k := 0; k < len(flightOfferPricing.Data.FlightOffers[i].Itineraries[j].Segments); k++ {
+					flightOfferPricing.Data.FlightOffers[i].Itineraries[j].Segments[k].Operating.CarrierCode = flightOfferPricing.Data.FlightOffers[i].Itineraries[j].Segments[k].CarrierCode
+				}
+			}
 		}
 		// call amadeus
 		pricing_response := amadeus.Flight_pricing(flightOfferPricing)
@@ -97,6 +107,7 @@ func main() {
 
 	})
 	app.Post("/api/booking", func(c *fiber.Ctx) error {
+		fmt.Println("POST /api/booking")
 		//body as FlightOrder
 		var flightOrder model.FlightOrderResponse
 		err := c.BodyParser(&flightOrder)

@@ -135,6 +135,8 @@ func Get_api_key() {
 	data.Set("client_id", os.Getenv("CLIENT_ID"))
 	data.Set("client_secret", os.Getenv("SECRET_ID"))
 
+	println(data.Encode())
+
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", urlPath, bytes.NewBufferString(data.Encode()))
 	if err != nil {
@@ -153,6 +155,8 @@ func Get_api_key() {
 	if err != nil {
 		log.Fatalf("Error reading response body: %v", err)
 	}
+	//print body
+	println(string(body))
 	os.Setenv("api_key", strings.ReplaceAll(strings.Split(strings.Split(string(body), ",")[5], ":")[1], "\"", ""))
 
 }
