@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -15,9 +16,9 @@ import (
 )
 
 func main() {
-	var input string
 	fmt.Println("Bienvenido a goTravel!")
 	for {
+		var input string
 		fmt.Println("1. Realizar búsqueda.")
 		fmt.Println("2. Obtener reserva.")
 		fmt.Println("3. Salir.")
@@ -48,20 +49,20 @@ func main() {
 
 				req, err := http.NewRequest("GET", url, nil)
 				if err != nil {
-					panic(err)
+					fmt.Println("Hubo un error al realizar la búsqueda”", err)
 				}
 
 				client := &http.Client{}
 				resp, err := client.Do(req)
 				if err != nil {
-					panic(err)
+					fmt.Println("Hubo un error al realizar la búsqueda”", err)
 				}
 				defer resp.Body.Close()
 
 				// Leer y mostrar la respuesta
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					panic(err)
+					fmt.Println("Hubo un error al realizar la búsqueda”", err)
 				}
 
 				print("Se obtuvieron los siguientes resultados:\n")
@@ -74,7 +75,7 @@ func main() {
 				var flightSearchResponse model.FlightSearchResponse
 				err_ := json.Unmarshal(body, &flightSearchResponse)
 				if err_ != nil {
-					panic(err_)
+					fmt.Println("Hubo un error al realizar la búsqueda”", err)
 				}
 
 				// Rellenar datos
@@ -108,41 +109,132 @@ func main() {
 
 				// Seleccionar opción de vuelo u Otra búsqueda
 				var index string
-				print("Seleccione un vuelo (Ingrese 0 para realizar nueva búsqueda): ")
-				fmt.Scanln(&index)
-				if index != "0" {
+				fmt.Print("Seleccione un vuelo (Ingrese 0 para realizar nueva búsqueda): ")
+				fmt.Scan(&index)
 
-					
+				var jsonData model.FlightData
+
+				if index != "0" {
+					for _, dato := range flightSearchResponse.Data {
+						if dato.ID == index {
+							// Crea una instancia de Data y asigna la oferta de vuelo
+							dataInstance := model.Data{
+								Type:         "flight-offers-pricing",
+								FlightOffers: []model.FlightOffer{dato},
+							}
+							jsonData = model.FlightData{
+								Data: dataInstance,
+							}
+							fmt.Println("jsonData: ", jsonData)
+							break
+
+						}
+					}
+
 				}
+
+				jsonDataBytes, err := json.Marshal(jsonData)
+				if err != nil {
+					panic(err)
+				}
+
+				URL := "http://localhost:5000/api/pricing"
+
+				// Crear una nueva solicitud POST
+				// Convertir jsonDataBytes en un io.Reader
+				jsonDataReader := bytes.NewReader(jsonDataBytes)
+
+				// Crear una nueva solicitud POST con jsonDataReader como cuerpo de la solicitud
+				sol, err := http.NewRequest("POST", URL, jsonDataReader)
+				if err != nil {
+					panic(err)
+				}
+				sol.Header.Set("Content-Type", "application/json")
+
+				// Realizar la solicitud HTTP
+				cliente := &http.Client{}
+				ans, err := cliente.Do(sol)
+				if err != nil {
+					panic(err)
+				}
+				defer ans.Body.Close()
+
+				// Leer el cuerpo de la respuesta HTTP
+				body_, err := ioutil.ReadAll(ans.Body)
+				if err != nil {
+					panic(err)
+				}
+
+				// Convertir el cuerpo de bytes a una cadena
+				responseBody := string(body_)
+
+				// Imprimir la respuesta
+				fmt.Println(responseBody)
+
+				adultsAsInt, err := strconv.Atoi(adults)
+				if err != nil {
+					fmt.Println("Error al convertir el string a número:", err)
+					return
+				}
+
+				for i := 1; i <= adultsAsInt; i++ {
+					fmt.Println("Pasajero", i)
+
+					var born string
+					fmt.Print("Ingrese fecha de nacimiento: ")
+					fmt.Scan(&born)
+
+					var name string
+					fmt.Print("Ingrese nombre: ")
+					fmt.Scan(&name)
+
+					var lastname string
+					fmt.Print("Ingrese apellido: ")
+					fmt.Scan(&lastname)
+
+					var gender string
+					fmt.Print("Ingrese sexo (MALE o FEMALE): ")
+					fmt.Scan(&gender)
+
+					var mail string
+					fmt.Print("Ingrese correo: ")
+					fmt.Scan(&mail)
+
+					var phone string
+					fmt.Print("Ingrese teléfono: ")
+					fmt.Scan(&phone)
+				}
+
 			}
 
 		case "2":
 			{
 				var id string
-				println("Ingrese el ID de la reserva: ")
-				fmt.Scanln(&id)
+				fmt.Print("Ingrese el ID de la reserva: ")
+				fmt.Scan(&id)
 
-				url := "localhost:5000/api/booking/:id" + id
+				url := fmt.Sprintf("http://localhost:5000/api/booking/%s", id)
 
-				req, err := http.NewRequest("GET", url, nil)
+				// Realiza la solicitud GET al endpoint
+				resp, err := http.Get(url)
 				if err != nil {
-					panic(err)
-				}
-
-				client := &http.Client{}
-				resp, err := client.Do(req)
-				if err != nil {
-					panic(err)
+					fmt.Println("Hubo un error al recuperar la reserva:", err)
+					return
 				}
 				defer resp.Body.Close()
 
-				// Leer y mostrar la respuesta
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					panic(err)
+				// Verifica si la respuesta es exitosa (código de estado 200)
+				if resp.StatusCode != http.StatusOK {
+					fmt.Printf("Hubo un error al recuperar la reserva: %d\n", resp.StatusCode)
+					return
 				}
-				fmt.Println(string(body))
 
+				// Lee y decodifica la respuesta JSON
+				var response model.FlightOrderResponse
+				if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+					fmt.Println("Hubo un error al recuperar la reserva", err)
+					return
+				}
 				println("Resultado:")
 
 				// Crear una nueva tabla
