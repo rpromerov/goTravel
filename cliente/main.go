@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
 
 	"model"
@@ -99,7 +100,7 @@ func main() {
 							}
 							formattedTimeA := parsedArrival.Format("15:04")
 
-							row := []string{dato.ID, segment.CarrierCode + " " + segment.Number, formattedTime, formattedTimeA, "A" + segment.Aircraft.Code, dato.Price.Total}
+							row := []string{dato.ID, segment.CarrierCode + segment.Number, formattedTime, formattedTimeA, "A" + segment.Aircraft.Code, dato.Price.Total}
 							table.Append(row)
 						}
 					}
@@ -117,7 +118,6 @@ func main() {
 				if index != "0" {
 					for _, dato := range flightSearchResponse.Data {
 						if dato.ID == index {
-							// Crea una instancia de Data y asigna la oferta de vuelo
 							dataInstance := model.Data{
 								Type:         "flight-offers-pricing",
 								FlightOffers: []model.FlightOffer{dato},
@@ -125,7 +125,6 @@ func main() {
 							jsonData = model.FlightData{
 								Data: dataInstance,
 							}
-							fmt.Println("jsonData: ", jsonData)
 							break
 
 						}
@@ -140,8 +139,6 @@ func main() {
 
 				URL := "http://localhost:5000/api/pricing"
 
-				// Crear una nueva solicitud POST
-				// Convertir jsonDataBytes en un io.Reader
 				jsonDataReader := bytes.NewReader(jsonDataBytes)
 
 				// Crear una nueva solicitud POST con jsonDataReader como cuerpo de la solicitud
@@ -159,18 +156,22 @@ func main() {
 				}
 				defer ans.Body.Close()
 
-				// Leer el cuerpo de la respuesta HTTP
-				body_, err := ioutil.ReadAll(ans.Body)
+				responseBody, err := ioutil.ReadAll(ans.Body)
 				if err != nil {
 					panic(err)
 				}
 
-				// Convertir el cuerpo de bytes a una cadena
-				responseBody := string(body_)
+				var response model.FlightOfferResponse
+				err2 := json.Unmarshal([]byte(responseBody), &response)
+				if err2 != nil {
+					panic(err)
+				}
 
-				// Imprimir la respuesta
-				fmt.Println(responseBody)
+				Total := response.Data.FlightOffers[0].Price.Total
 
+				fmt.Println("El precio total final es de: ", Total)
+
+				// Solicita la cantidad de pasajeros
 				adultsAsInt, err := strconv.Atoi(adults)
 				if err != nil {
 					fmt.Println("Error al convertir el string a número:", err)
@@ -180,31 +181,85 @@ func main() {
 				for i := 1; i <= adultsAsInt; i++ {
 					fmt.Println("Pasajero", i)
 
-					var born string
+					var born, name, lastname, gender, mail, phone string
+
 					fmt.Print("Ingrese fecha de nacimiento: ")
-					fmt.Scan(&born)
+					_, _ = fmt.Scan(&born)
 
-					var name string
 					fmt.Print("Ingrese nombre: ")
-					fmt.Scan(&name)
+					_, _ = fmt.Scan(&name)
 
-					var lastname string
 					fmt.Print("Ingrese apellido: ")
-					fmt.Scan(&lastname)
+					_, _ = fmt.Scan(&lastname)
 
-					var gender string
 					fmt.Print("Ingrese sexo (MALE o FEMALE): ")
-					fmt.Scan(&gender)
+					_, _ = fmt.Scan(&gender)
 
-					var mail string
 					fmt.Print("Ingrese correo: ")
-					fmt.Scan(&mail)
+					_, _ = fmt.Scan(&mail)
 
-					var phone string
 					fmt.Print("Ingrese teléfono: ")
-					fmt.Scan(&phone)
-				}
+					_, _ = fmt.Scan(&phone)
 
+					// Insertar la reserva en MongoDB (tendrás que definir la estructura `Contact` y `TravelerInfo`)
+					contact := model.Contact{
+						EmailAddress: mail,
+						Phones: []model.Phone{
+							{Number: phone},
+						},
+					}
+
+					traveler := model.TravelerInfo{
+						ID:          uuid.New().String(),
+						DateOfBirth: born,
+						Name: model.Name{
+							FirstName: name,
+							LastName:  lastname,
+						},
+						Gender:  gender,
+						Contact: contact,
+					}
+
+					// Generar un ID único
+					id := uuid.New().String()
+
+					// Crear una nueva instancia de FlightOrderData
+					flightOrder := model.FlightOrderData{
+						Type:            "flight-order",
+						ID:              id,
+						QueuingOfficeId: "Amadeus123",
+						Travelers:       []model.TravelerInfo{traveler},
+					}
+
+					// Convierte los datos en JSON
+					requestBody, err := json.Marshal(flightOrder)
+					if err != nil {
+						fmt.Println("Error al convertir a JSON:", err)
+						return
+					}
+
+					// URL de la API donde deseas hacer la solicitud POST
+					apiURL := "http://localhost:5000/api/booking" // Ajusta la URL a tu entorno
+
+					// Realiza la solicitud POST
+					resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(requestBody))
+					if err != nil {
+						fmt.Println("Error al hacer la solicitud POST:", err)
+						return
+					}
+					defer resp.Body.Close()
+
+					// Lee la respuesta del servidor si es necesario
+					responseBody, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						fmt.Println("Error al leer la respuesta del servidor:", err)
+						return
+					}
+
+					fmt.Println("Respuesta del servidor:", string(responseBody))
+
+					fmt.Println("Reserva insertada exitosamente: " + id)
+				}
 			}
 
 		case "2":
