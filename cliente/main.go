@@ -219,15 +219,29 @@ func main() {
 						Gender:  gender,
 						Contact: contact,
 					}
+					var offers []model.FlightOffer
 
-					// Generar un ID único
-					id := uuid.New().String()
+					for _, offerData := range flightSearchResponse.Data {
+						// Crea una variable model.FlightOffer para cada elemento en flightSearchResponse.Data
+						offer := model.FlightOffer{
+							Type:                     offerData.Type,
+							ID:                       offerData.ID,
+							Source:                   offerData.Source,
+							InstantTicketingRequired: offerData.InstantTicketingRequired,
+							NonHomogeneous:           offerData.NonHomogeneous,
+							// Continúa asignando los demás campos según sea necesario
+						}
+
+						// Agrega cada oferta a la lista 'offers'
+						offers = append(offers, offer)
+					}
 
 					// Crear una nueva instancia de FlightOrderData
 					flightOrder := model.FlightOrderData{
 						Type:            "flight-order",
-						ID:              id,
+						ID:              strconv.Itoa(i),
 						QueuingOfficeId: "Amadeus123",
+						FlightOffers:    offers,
 						Travelers:       []model.TravelerInfo{traveler},
 					}
 
@@ -247,6 +261,7 @@ func main() {
 						fmt.Println("Error al hacer la solicitud POST:", err)
 						return
 					}
+
 					defer resp.Body.Close()
 
 					// Lee la respuesta del servidor si es necesario
@@ -257,8 +272,6 @@ func main() {
 					}
 
 					fmt.Println("Respuesta del servidor:", string(responseBody))
-
-					fmt.Println("Reserva insertada exitosamente: " + id)
 				}
 			}
 
