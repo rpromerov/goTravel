@@ -130,8 +130,10 @@ func main() {
 		return c.Send(order_json)
 	})
 	app.Get("/api/booking/:id", func(c *fiber.Ctx) error {
+		fmt.Println("GET /api/booking/:id")
 		//get id from request
 		id := c.Params("id")
+		fmt.Println(id)
 		//get from mongodb
 		filter := bson.M{"id": id}
 		result, err := db_connector.GetOne(client, ctx, "reservations", filter)

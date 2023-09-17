@@ -16,7 +16,7 @@ func Close(client mongo.Client, ctx context.Context, cancel context.CancelFunc) 
 }
 func Connect() (mongo.Client, context.Context, context.CancelFunc, error) {
 	uri := os.Getenv("CONNECTION_STRING")
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Second)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	return *client, ctx, cancel, err
 

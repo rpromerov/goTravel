@@ -10,13 +10,22 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	"github.com/olekukonko/tablewriter"
 
 	"model"
 )
 
 func main() {
+	// Cargar variables de entorno
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Error al cargar las variables de entorno:", err)
+		return
+	}
+	url := os.Getenv("SERVER")
+	port := os.Getenv("PORT")
+	connection := url + ":" + port
 	fmt.Println("Bienvenido a goTravel!")
 	for {
 		var input string
@@ -46,7 +55,7 @@ func main() {
 				fmt.Scan(&adults)
 
 				// Buscar vuelos
-				url := "http://localhost:5000/api/search?" + "originLocationCode=" + originLocationCode + "&destinationLocationCode=" + destinationLocationCode + "&departureDate=" + departureDate + "&adults=" + adults + "&nonStop=true&currencyCode=CLP&travelClass=ECONOMY"
+				url := "http://" + connection + "/api/search?" + "originLocationCode=" + originLocationCode + "&destinationLocationCode=" + destinationLocationCode + "&departureDate=" + departureDate + "&adults=" + adults + "&nonStop=true&currencyCode=CLP&travelClass=ECONOMY"
 
 				req, err := http.NewRequest("GET", url, nil)
 				if err != nil {
@@ -130,6 +139,8 @@ func main() {
 						}
 					}
 
+				} else {
+					continue
 				}
 
 				jsonDataBytes, err := json.Marshal(jsonData)
@@ -137,7 +148,7 @@ func main() {
 					panic(err)
 				}
 
-				URL := "http://localhost:5000/api/pricing"
+				URL := "http://" + connection + "/api/pricing"
 
 				jsonDataReader := bytes.NewReader(jsonDataBytes)
 
@@ -177,6 +188,7 @@ func main() {
 					fmt.Println("Error al convertir el string a número:", err)
 					return
 				}
+				travelers := []model.TravelerInfo{}
 
 				for i := 1; i <= adultsAsInt; i++ {
 					fmt.Println("Pasajero", i)
@@ -203,14 +215,17 @@ func main() {
 
 					// Insertar la reserva en MongoDB (tendrás que definir la estructura `Contact` y `TravelerInfo`)
 					contact := model.Contact{
+
 						EmailAddress: mail,
 						Phones: []model.Phone{
-							{Number: phone},
+							{Number: phone,
+								CountryCallingCode: "56",
+								DeviceType:         "MOBILE"},
 						},
 					}
 
 					traveler := model.TravelerInfo{
-						ID:          uuid.New().String(),
+						ID:          response.Data.FlightOffers[0].TravelerPricings[i-1].TravelerID,
 						DateOfBirth: born,
 						Name: model.Name{
 							FirstName: name,
@@ -219,60 +234,71 @@ func main() {
 						Gender:  gender,
 						Contact: contact,
 					}
-					var offers []model.FlightOffer
-
-					for _, offerData := range flightSearchResponse.Data {
-						// Crea una variable model.FlightOffer para cada elemento en flightSearchResponse.Data
-						offer := model.FlightOffer{
-							Type:                     offerData.Type,
-							ID:                       offerData.ID,
-							Source:                   offerData.Source,
-							InstantTicketingRequired: offerData.InstantTicketingRequired,
-							NonHomogeneous:           offerData.NonHomogeneous,
-							// Continúa asignando los demás campos según sea necesario
-						}
-
-						// Agrega cada oferta a la lista 'offers'
-						offers = append(offers, offer)
-					}
-
-					// Crear una nueva instancia de FlightOrderData
-					flightOrder := model.FlightOrderData{
-						Type:            "flight-order",
-						ID:              strconv.Itoa(i),
-						QueuingOfficeId: "Amadeus123",
-						FlightOffers:    offers,
-						Travelers:       []model.TravelerInfo{traveler},
-					}
-
-					// Convierte los datos en JSON
-					requestBody, err := json.Marshal(flightOrder)
-					if err != nil {
-						fmt.Println("Error al convertir a JSON:", err)
-						return
-					}
-
-					// URL de la API donde deseas hacer la solicitud POST
-					apiURL := "http://localhost:5000/api/booking" // Ajusta la URL a tu entorno
-
-					// Realiza la solicitud POST
-					resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(requestBody))
-					if err != nil {
-						fmt.Println("Error al hacer la solicitud POST:", err)
-						return
-					}
-
-					defer resp.Body.Close()
-
-					// Lee la respuesta del servidor si es necesario
-					responseBody, err := ioutil.ReadAll(resp.Body)
-					if err != nil {
-						fmt.Println("Error al leer la respuesta del servidor:", err)
-						return
-					}
-
-					fmt.Println("Respuesta del servidor:", string(responseBody))
+					travelers = append(travelers, traveler)
 				}
+				var offers []model.FlightOffer
+
+				for _, offerData := range flightSearchResponse.Data {
+					// Crea una variable model.FlightOffer para cada elemento en flightSearchResponse.Data
+					offer := model.FlightOffer{
+						Type:                     offerData.Type,
+						ID:                       offerData.ID,
+						Source:                   offerData.Source,
+						InstantTicketingRequired: offerData.InstantTicketingRequired,
+						NonHomogeneous:           offerData.NonHomogeneous,
+						// Continúa asignando los demás campos según sea necesario
+					}
+
+					// Agrega cada oferta a la lista 'offers'
+					offers = append(offers, offer)
+				}
+
+				// Crear una nueva instancia de FlightOrderData
+				flightOrder := model.FlightOrderData{
+					Type:            "flight-order",
+					QueuingOfficeId: "Amadeus123",
+					FlightOffers:    []model.FlightOffer{response.Data.FlightOffers[0]},
+					Travelers:       travelers,
+				}
+				flightOrderResponse := model.FlightOrderResponse{
+					Data: flightOrder,
+				}
+
+				// Convierte los datos en JSON
+				requestBody, err := json.Marshal(flightOrderResponse)
+				if err != nil {
+					fmt.Println("Error al convertir a JSON:", err)
+					return
+				}
+
+				// URL de la API donde deseas hacer la solicitud POST
+				apiURL := "http://" + connection + "/api/booking" // Ajusta la URL a tu entorno
+
+				// Realiza la solicitud POST
+				resp, err = http.Post(apiURL, "application/json", bytes.NewBuffer(requestBody))
+				if err != nil {
+					fmt.Println("Error al hacer la solicitud POST:", err)
+					return
+				}
+
+				defer resp.Body.Close()
+
+				// Lee la respuesta del servidor si es necesario
+				responseBody, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Println("Error al leer la respuesta del servidor:", err)
+					return
+				}
+				//Unmarshall into FlightOrderResponse
+				var response2 model.FlightOrderResponse
+				err = json.Unmarshal(responseBody, &response2)
+				if err != nil {
+					fmt.Println("Error al leer la respuesta del servidor:", err)
+					continue
+				}
+
+				//fmt.Println("Respuesta del servidor:", string(responseBody))
+				fmt.Println("Reserva creada con éxito: ", response2.Data.ID)
 			}
 
 		case "2":
@@ -281,7 +307,7 @@ func main() {
 				fmt.Print("Ingrese el ID de la reserva: ")
 				fmt.Scan(&id)
 
-				url := fmt.Sprintf("http://localhost:5000/api/booking/%s", id)
+				url := fmt.Sprintf("http://"+connection+"/api/booking/%s", id)
 
 				// Realiza la solicitud GET al endpoint
 				resp, err := http.Get(url)
@@ -313,7 +339,7 @@ func main() {
 				table.SetHeader(headers)
 
 				// Rellenar datos
-
+				table.Append([]string{response.Data.FlightOffers[0].ID, response.Data.FlightOffers[0].Itineraries[0].Segments[0].Departure.At, response.Data.FlightOffers[0].Itineraries[0].Segments[0].Arrival.At, response.Data.FlightOffers[0].Itineraries[0].Segments[0].Aircraft.Code, response.Data.FlightOffers[0].Price.Total})
 				// Imprimir tabla
 				table.Render()
 
@@ -327,7 +353,9 @@ func main() {
 				passenger.SetHeader(headers_p)
 
 				// Rellenar datos
-
+				for _, traveler := range response.Data.Travelers {
+					passenger.Append([]string{traveler.Name.FirstName, traveler.Name.LastName})
+				}
 				// Imprimir tabla
 				passenger.Render()
 			}
